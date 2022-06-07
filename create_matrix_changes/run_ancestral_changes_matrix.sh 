@@ -1,0 +1,6 @@
+#!/bin/bash
+Fastaname=${arrIN[0]}
+pathTree=${arrIN[1]}
+pathChanges=${arrIN[2]}
+
+Rscript create_ancestral_changes_array.r $Fastaname $pathTree $pathChanges
