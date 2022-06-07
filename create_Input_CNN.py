@@ -125,12 +125,13 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
     ## For training
     num_train_coev = 0
-    for i in os.listdir(folder+'/train/COEV/'):
+    print("Training dataset")
+    for i in os.listdir(folder_input+'/train/COEV/'):
 
         if ('DS' not in i) & ('MAP' not in i):
             #print(i)
             try:
-                df = pd.read_csv(folder+'/train/COEV/'+i, index_col=0, header=None, skiprows=1)
+                df = pd.read_csv(folder_input+'/train/COEV/'+i, index_col=0, header=None, skiprows=1)
                 matrix = df.to_numpy()
                 if matrix.shape[0] <= row_m:
                     id_file = i #.split('.')[0] #int(i.split('_')[2])
@@ -145,6 +146,7 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
                     #training_dataset.append(new_m) #.tolist()
                     num_train_coev += 1
+                    break
             except:
                 print(i)
 
@@ -152,10 +154,10 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
     ### NO COEVOLUTION
     num_train_non_coev = 0
-    for i in os.listdir(folder+'/train/NO_COEV/'):
+    for i in os.listdir(folder_input+'/train/NO_COEV/'):
 
         if ('DS' not in i) & ('MAP' not in i):
-            df = pd.read_csv(folder+'/train/NO_COEV/'+i, index_col=0, header=None, skiprows=1)
+            df = pd.read_csv(folder_input+'/train/NO_COEV/'+i, index_col=0, header=None, skiprows=1)
 
             matrix = df.to_numpy()
             if matrix.shape[0] <= row_m:
@@ -169,6 +171,7 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
                 #training_dataset.append(new_m) #.tolist()
                 num_train_non_coev += 1
+                break
 
     print("No Coev DONE")
 
@@ -184,15 +187,16 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
     label_train = np.concatenate((label_train_coev, label_train_non_coev), axis=None)
 
     training_dataset = np.float64(training_dataset)
-    print(training_dataset.shape)
+    #print(training_dataset.shape)
 
 
     ## Test dataset
+    print("Testing dataset")
     diff_train_coev = 0
-    for i in os.listdir(folder+'/test/COEV/'):
+    for i in os.listdir(folder_input+'/test/COEV/'):
         if ('DS' not in i) & ('MAP' not in i):
             try:
-                df = pd.read_csv(folder+'/test/COEV/'+i, index_col=0, header=None, skiprows=1)
+                df = pd.read_csv(folder_input+'/test/COEV/'+i, index_col=0, header=None, skiprows=1)
                 matrix = df.to_numpy()
 
                 if matrix.shape[0] <= row_m:
@@ -206,6 +210,7 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
                     #diff_dataset.append(new_m.tolist())
                     diff_train_coev += 1
+                    break
             except:
                 print(i)
 
@@ -214,9 +219,9 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
     ## Testing dataset under non coevolution
     diff_train_non_coev = 0 
-    for i in os.listdir(folder+'/test/NO_COEV/'):
+    for i in os.listdir(folder_input+'/test/NO_COEV/'):
         if ('DS' not in i) & ('MAP' not in i):
-            df = pd.read_csv(folder+'/test/NO_COEV/'+i, index_col=0, header=None, skiprows=1)
+            df = pd.read_csv(folder_input+'/test/NO_COEV/'+i, index_col=0, header=None, skiprows=1)
             matrix = df.to_numpy()
             if matrix.shape[0] <= row_m:
                 id_file = i #.split('.')[0] #int(i.split('_')[2])
@@ -229,6 +234,7 @@ def create_dataset(row_size, col_size, folder_input, folder_output_name = '.', h
 
                 #diff_dataset.append(new_m.tolist())
                 diff_train_non_coev += 1
+                break
 
     print("No Coev DONE")
 
