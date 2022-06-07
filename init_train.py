@@ -1,131 +1,188 @@
+import torch 
+import torch.nn as nn
 import numpy as np
-import torch
-import h5py
-from pathlib import Path
-from torch.utils import data
+import pandas as pd
+import os
 
-def load_data_numpy(file_x, file_y, file_label, file_tx, file_ty, file_tlabel, my_seed = 123):
+from sklearn.preprocessing import StandardScaler    
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, classification_report
+
+
+import torch.nn.functional as F
+from torchvision import transforms, utils, datasets
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+from sklearn.metrics import classification_report, confusion_matrix
+
+import torch.optim as optim
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+"""NUMBER_FILTERS = 400
+BATCH_SIZE = 64
+ROW_SIZE = 199 #100
+COL_SIZE = 396 #672"""
+
+### Custom dataloaders
+class trainData(Dataset):
     
-    X = np.load(file_x)
-    X = X.astype(np.long)
-    Y = np.load(file_y)
-    L = np.load(file_label)
-
-    tX = np.load(file_tx)
-    tX = tX.astype(np.long)
-    tY = np.load(file_ty)
-    tL = np.load(file_tlabel)
-
-    X = np.concatenate((X, tX), axis=0)
-    Y = np.concatenate((Y, tY), axis=0)
-    L = np.concatenate((L, tL), axis=0)
-
-    np.random.seed(my_seed)
-
-    rnd_indx = np.random.choice(range(Y.shape[0]), size=Y.shape[0])
-
-    Yt = Y[rnd_indx] #.reshape((1, Y.shape[0]))
-    Xt = X[rnd_indx]
-    Lt = L[rnd_indx]
-
-    return Xt, Yt, Lt
-
-class HDF5Dataset(torch.utils.data.Dataset):
-    """Represents an abstract HDF5 dataset.
-    
-    Input params:
-        file_path: Path to the folder containing the dataset (one or multiple HDF5 files).
-    """
-    def __init__(self, file_path, train=True):
-        super(HDF5Dataset, self).__init__()
+    def __init__(self, X_data, y_data, label_data):
+        self.X_data = X_data
+        self.y_data = y_data
+        self.label_data = label_data
         
-        if train:
-            self.h5_file = h5py.File(file_path , 'r')
-            self.dataset = self.h5_file['training_dataset']
-            self.label = self.h5_file['label_train']
-            self.file_names = self.h5_file['file_names_train']
-        else:
-            self.h5_file = h5py.File(file_path , 'r')
-            self.dataset = self.h5_file['testing_dataset']
-            self.label = self.h5_file['label_test']
-            self.file_names = self.h5_file['file_names_test']
-
     def __getitem__(self, index):
+        return self.X_data[index], self.y_data[index], self.label_data[index]
         
-        # get data
-        #print(self.training_dataset[index].shape)
-        x = torch.FloatTensor(np.array(self.dataset[index]))
-
-        # get label
-        #print("inside function", self.label_train[index])
-        y = self.label[index]
-
-        # get name file 
-        #print("inside function", self.file_names[index])
-        z = self.file_names[index]
-        return (x, y, z)
-        
-            
-
-    def __len__(self):
-        return len(self.label)
-
-
-def hdf_data(hdf5_data_folder, *name_h5, my_seed = 19135279):
-
-    ## Another Try
-    #hdf5_data_folder = '/scratch/rramabal/CNN_project_weeks/DATA/'
-
-    #hdf5_data_folder = '/scratch/rramabal/CNN_project_weeks/SelectomeCNN/chapter_3_DATA/'
-    #data_hf = [hdf5_data_folder+'no_freq_simulated_Selectome_199_396_Small.h5']
+    def __len__ (self):
+        return len(self.X_data)
     
-    print(name_h5[0][0])
+class coevClassifier_Separate(nn.Module):
+    def __init__(self, NUMBER_FILTERS, ROW_SIZE, COL_SIZE):
+        super(coevClassifier_Separate, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels = 1, out_channels = NUMBER_FILTERS, 
+                               kernel_size = (ROW_SIZE,1))
+        
+        self.conv2 = nn.Conv2d(in_channels = NUMBER_FILTERS, out_channels = NUMBER_FILTERS, 
+                               kernel_size = (1,COL_SIZE))
+
+        self.fc1 = nn.Linear(NUMBER_FILTERS, 100)
+        self.fc1_drop = nn.Dropout(p=0.25)
+        self.fc3 = nn.Linear(100, 2)
+
+
+    def forward(self, x):
+        #print(x.shape)
+        #x2 = torch.sum(x, dim=1, keepdim=True)
+        
+        #x = x.type(torch.LongTensor)
+        x2 = torch.from_numpy(np.expand_dims(x, axis=1))
+        #print(x2.shape)
+        
+        x_conv1 = F.relu(self.conv1(x2))
+        #print(x_conv1.shape)
+        
+        x2_conv1 = x_conv1
+        
+        #print(x2_conv1.shape)
+        #print(x2_conv1)
+        
+        x_conv2 = F.relu(self.conv2(x2_conv1))
+        
+        x_conv2 = x_conv2.view(x_conv2.size(0), -1)
+        
+        x_final = F.relu(self.fc1(x_conv2))
+        x_final = self.fc1_drop(x_final)
+        x_final = self.fc3(x_final)
+        
+        return x_final
+
+def binary_acc(y_pred, y_test):
+    y_pred_tag = torch.log_softmax(y_pred, dim = 1)
+    _, y_pred_tags = torch.max(y_pred_tag, dim = 1)
+    correct_results_sum = (y_pred_tags == y_test).sum().float()
+    acc = correct_results_sum/y_test.shape[0]
+    acc = torch.round(acc * 100)
+    return acc
     
-    print(len(name_h5))
-    print(len(name_h5[0]))
-    data_hf = [hdf5_data_folder + name_h5[0][0]]
-   
-    if len(name_h5[0]) > 1:
-        for i in range(1, len(name_h5[0])):
-            data_hf.append(hdf5_data_folder + name_h5[0][i])
-
-    first = True
-    print(data_hf)
-    for index_data_hf in data_hf:
-
-        train_dataset = HDF5Dataset(index_data_hf, train=True)
-
-        np.random.seed(my_seed)
-        idx = np.arange(0,len(train_dataset))
-        print("SIZE:", len(train_dataset))
-        np.random.shuffle(idx)
-        #print(idx[0:5])
-        #print(len(idx))
-        new_len = int(len(idx))
-        #print(new_len)
+def train_network(NUMBER_EPOCHS, train_loader, val_loader, model, criterion, optimizer):
+    print("Begin training.")
+    
+    accuracy_stats = {
+    'train': [],
+    "val": []
+    }
+    loss_stats = {
+        'train': [],
+        "val": []
+    }
+    
+    # Early stopping
+    last_loss = 100
+    patience = 2
+    trigger_times = 0
+    
+    for e in range(1, NUMBER_EPOCHS):
+        # TRAINING
+        train_epoch_loss = 0
+        train_epoch_acc = 0
         
-        #val_value = int(len(idx)*70/100)
-        #test_value = int(len(idx)*20/100)
-        
-        val_value = int(new_len*90/100)
+        model.train()
+        for batch_idx, (X_train_batch, y_train_batch, filename_train_batch) in enumerate(train_loader):
+            #for X_train_batch, y_train_batch, filename_train_batch in train_loader:
 
-        if first:
-            first = False
-            train_data = torch.utils.data.Subset(train_dataset, idx[:val_value])
-            val_data = torch.utils.data.Subset(train_dataset, idx[val_value:])
-            print('train:', len(train_data), 'val:', len(val_data))
-            #print(len(train_data)+len(val_data))
-            #print("Train")
-            
+            optimizer.zero_grad()
+            y_train_pred = model(X_train_batch.type(torch.float))
+            #print(y_train_batch)
+
+            train_loss = criterion(y_train_pred, y_train_batch.type(torch.LongTensor))
+            #train_loss = train_loss + l2_lambda * l2_norm
+            train_acc = binary_acc(y_train_pred, y_train_batch.type(torch.LongTensor))
+
+            # Backpropagation
+            train_loss.backward()
+            optimizer.step()
+            train_epoch_loss += train_loss.item()
+            train_epoch_acc += train_acc.item()
+        # VALIDATION
+        with torch.no_grad():
+            model.eval()
+            val_epoch_loss = 0
+            val_epoch_acc = 0
+            for batch_idx, (X_val_batch, y_val_batch, filename_val_batch) in enumerate(val_loader):
+
+                #for X_val_batch, y_val_batch, filename_val_batch in val_loader:
+                #X_val_batch, y_val_batch = X_val_batch.to(device), y_val_batch.to(device)
+                y_val_pred = model(X_val_batch.type(torch.float)) #.squeeze()
+                #y_val_pred = torch.unsqueeze(y_val_pred, 0)
+                val_loss = criterion(y_val_pred, y_val_batch.type(torch.LongTensor))
+                val_acc = binary_acc(y_val_pred, y_val_batch.type(torch.LongTensor))
+                val_epoch_loss += train_loss.item()
+                val_epoch_acc += train_acc.item()
+        loss_stats['train'].append(train_epoch_loss/len(train_loader))
+        loss_stats['val'].append(val_epoch_loss/len(val_loader))
+        accuracy_stats['train'].append(train_epoch_acc/len(train_loader))
+        accuracy_stats['val'].append(val_epoch_acc/len(val_loader))
+        print(f'Epoch {e+0:02}: | Train Loss: {train_epoch_loss/len(train_loader):.5f} | Val Loss: {val_epoch_loss/len(val_loader):.5f} | Train Acc: {train_epoch_acc/len(train_loader):.3f}| Val Acc: {val_epoch_acc/len(val_loader):.3f}')
+        
+        current_loss = val_epoch_loss/len(val_loader)
+        if current_loss > last_loss:
+            trigger_times += 1
+            print('Trigger Times:', trigger_times)
+
+            if trigger_times >= patience:
+                print('Early stopping!\nStart to test process.')
+                return model, loss_stats, accuracy_stats
+
         else:
-            train_data_aux = torch.utils.data.Subset(train_dataset, idx[:val_value])
-            val_data_aux = torch.utils.data.Subset(train_dataset, idx[val_value:])
-            
-            train_data = torch.utils.data.ConcatDataset([train_data, train_data_aux])
-            val_data = torch.utils.data.ConcatDataset([val_data, val_data_aux])
-            print('train:', len(train_data), 'val:', len(val_data))
-            #print(len(train_data)+len(val_data))
+            print('trigger times: 0')
+            trigger_times = 0
+        last_loss = current_loss
+        
+    return model, loss_stats, accuracy_stats
 
-        print("")
+
+def test_model(model, test_loader):
+    y_pred_list = []
+    y_true_list = []
+    name_list = []
+    with torch.no_grad():
+        for x_batch, y_batch, filename_batch in test_loader:
+            #x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            y_test_pred = model(x_batch.type(torch.float))
+            y_test_pred = torch.log_softmax(y_test_pred, dim=1)
+            _, y_pred_tag = torch.max(y_test_pred, dim = 1)
+            y_pred_list.append(y_pred_tag.cpu().numpy())
+            y_true_list.append(y_batch.cpu().numpy())
+            name_list.append(filename_batch)
+            #print(y_batch)
+
+    y_pred_list = [i[0] for i in y_pred_list]
+    y_true_list = [i[0] for i in y_true_list]
+    name_list = [i[0] for i in name_list]
     
-    return train_data, val_data
+    return y_pred_list, y_true_list, name_list 
+
+
