@@ -1,3 +1,3 @@
 Scripts to generate the matrix of changes from the phylogenetic tree and an MSA
 
-bash run_ancestral_changes_matrix.sh my_fasta.fasta my_tree.nwk output_folder
+bash run_ancestral_changes_matrix.sh my_fasta.fasta my_tree.nwk output_folder amino
