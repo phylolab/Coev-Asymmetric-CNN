@@ -4,9 +4,7 @@ args <- commandArgs(trailingOnly = TRUE)
 name_fasta <- args[1]
 name_tree <- args[2]
 matrix_path <- args[3]
-
-mapping_list <- get_mapping(20);
-length(mapping_list)
+type_msa <- args[4]
 
 print(name_tree)
 print(name_fasta)
@@ -17,7 +15,17 @@ tree_coev <- read.tree(name_tree)
 tree_coev$edge.length[which(tree_coev$edge.length==0)] <- 0.000001
 
 #plot(tree_coev)
-align <- read.phyDat(name_fasta, format="fasta", type="AA")
+
+if( i == 'nucleotides'){
+  mapping_list <- get_mapping(4);
+  align <- read.phyDat(name_fasta, format="fasta", type="DNA")
+}
+else{
+  mapping_list <- get_mapping(20);
+  align <- read.phyDat(name_fasta, format="fasta", type="AA")
+}
+length(mapping_list)
+
 
 fit_coev <- pml(tree_coev, align,optQ=T,optEdge=F,optRate=T)
 anc.ml <- ancestral.pml(fit_coev, type = "ml") #, site.pattern=F)
