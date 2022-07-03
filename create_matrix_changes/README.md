@@ -18,4 +18,6 @@ The libraries needed are:
 - numpy==1.19.5
 - pandas==1.1.5
 
+## Usage
+
 bash run_ancestral_changes_matrix.sh my_fasta.fasta my_tree.nwk output_folder amino
