@@ -1,7 +1,8 @@
 Scripts to generate the matrix of changes from the phylogenetic tree and an MSA
 
 The libraries needed for R:
-install_version("phytools", version = "0.7.70", repos = "http://cran.us.r-project.org")
+- phytools
+- phangorn
 
 ## Installation
 ```r
